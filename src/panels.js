@@ -2,7 +2,7 @@
 // order card (left: what a clicked order is, how long ago, how happy). Both read data/shop.json
 // and data/shop.bin, recorded from the engine alongside the public feed (tools/simulate_match.py).
 import { botSvg } from './looks.js';
-import { createIsoShop } from './shop-iso.js?v=14';
+import { createIsoShop } from './shop-iso.js?v=20';
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));

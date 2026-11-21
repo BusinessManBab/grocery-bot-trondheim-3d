@@ -84,12 +84,12 @@ export function face(kind, colour) {
   }[kind];
 }
 
-export function truckArt(raw, shadow = true) {
+export function truckArt(raw) {
   const look = cleanLook(raw);
   const paint = COLORS[look.color], head = HEADS[look.head], [fx, fy] = head.face;
   const tint = look.visor === 'tint';
   const wheel = cx => `<circle cx="${cx}" cy="29" r="9" fill="${INK}"/><circle cx="${cx}" cy="29" r="3.6" fill="#cfc7c1"/>`;
-  return (shadow ? `<ellipse cx="0" cy="38" rx="78" ry="4" fill="#171412" opacity=".1"/>` : '') + rect(-74, 16, 144, 7, 3.5, INK) +
+  return `<ellipse cx="0" cy="38" rx="78" ry="4" fill="#171412" opacity=".1"/>` + rect(-74, 16, 144, 7, 3.5, INK) +
     CARRIAGES[look.carriage](paint, marks[look.decal]) +
     `<path d="${head.d}" fill="${paint}"/><ellipse cx="27" cy="${head.top + 11}" rx="2.8" ry="4.8" transform="rotate(34 27 ${head.top + 11})" fill="#fff" opacity=".28"/>` +
     (tint ? rect(fx - 13.5, fy - 9.5, 30, 19, 9.5, paint === INK ? '#4a423d' : INK) : '') +

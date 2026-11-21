@@ -1,7 +1,8 @@
 // Preview build of the live /game/CODE page (prototypes/town-rush/game-view.js) with a 3D view added.
 import { MAP_LABELS } from './game-map-labels.js';
 import { COLORS, DEFAULT_LOOK, botSvg, cleanLook, truckSvg } from './looks.js';
-import { createPanels } from './panels.js?v=15';
+import { createPanels } from './panels.js?v=20';
+import { forestPath, plantForest } from './forest.js?v=20';
 
 const $ = id => document.getElementById(id);
 const code = 'PREVIEW';
@@ -62,7 +63,8 @@ function setMeta(meta) {
     row.style.setProperty('--seat', player.colour);
     row.innerHTML = `<span class="g-rank"></span><span class="g-face">${botSvg(player.look)}</span><span class="g-who"><strong></strong><small></small></span><span class="g-score"></span>`;
     row.querySelector('strong').textContent = player.name;
-    row.addEventListener('click', () => { play.focus = play.focus === player.seat ? null : player.seat; lastBoardTick = -1; });
+    // focus the fleet (as before) and show that player's shop in the shop window
+    row.addEventListener('click', () => { play.focus = play.focus === player.seat ? null : player.seat; lastBoardTick = -1; panels?.showShop(player.seat); });
     player.row = row;
     return row;
   }));
@@ -253,6 +255,7 @@ function drawMap() {
   ctx.setTransform(s * view.dpr, 0, 0, s * view.dpr, view.x * view.dpr, view.y * view.dpr);
   ctx.fillStyle = '#c9d8ac';
   ctx.fill(paths.green);
+  if (paths.forest) ctx.fill(paths.forest);     // green where the forest grows (the 3D view's trees)
   ctx.fillStyle = '#86b8c5';
   ctx.fill(paths.water);
   ctx.lineCap = ctx.lineJoin = 'round';
@@ -529,8 +532,9 @@ const host3d = $('world3d');
 async function setMode(next) {
   if (next === '3d' && !world3d) {
     $('view-3d').setAttribute('aria-busy', 'true');
-    loading3d ||= import('./view3d.js?v=15').then(m => m.createWorld3d({
-      host: host3d, overlay: ctx, view, town, game, play, wx, wy, truckAt, shopSign, labels: town.labels || MAP_LABELS,
+    await forestReady;
+    loading3d ||= import('./view3d.js?v=20').then(m => m.createWorld3d({
+      host: host3d, overlay: ctx, view, town, game, play, wx, wy, truckAt, shopSign, labels: town.labels || MAP_LABELS, forest: forestSpots,
       constants: { OPEN, CLAIMED, DELIVERED, MISSED, PARKED, TRAIL, POP_TICKS, INK },
       selected: () => panels?.selectedOrder ?? null, onTap: choose, hover: pickAt,
     }));
@@ -558,6 +562,22 @@ addEventListener('keydown', event => {
 });
 window.groceryView = { setMode, play, game, toWorld: (lon, lat) => [wx(lon), wy(lat)], get picks() { return mode === '3d' && world3d ? world3d.picks : picks; }, get panels() { return panels; }, get world3d() { return world3d; } };
 
+// Forest: OSM woodland plus empty land away from town (src/forest.js). Optional data; the 3D view
+// waits for it so both views show the same forest.
+let forestSpots = [], forestReady = null;
+function growForest() {
+  const meta = () => game.meta ? Promise.resolve() : new Promise(done => setTimeout(() => done(meta()), 150));
+  forestReady = meta().then(() => Promise.all([
+    fetch('data/buildings.json').then(res => res.ok ? res.json() : null),
+    fetch('data/landcover.json').then(res => res.ok ? res.json() : null),
+  ]).then(([extra, cover]) => {
+    if (!extra || !cover) return;
+    forestSpots = plantForest({ town, buildings: extra.buildings, cover, wx, wy, shops: (game.meta?.players || []).map(p => [wx(p.shop[0]), wy(p.shop[1])]) });
+    paths.forest = forestPath(forestSpots);
+    mapKey = '';
+  })).catch(error => console.error(error));
+}
+
 async function start() {
   document.querySelector('.g-mark').innerHTML = botSvg(DEFAULT_LOOK);
   if (!code) { $('message').textContent = 'This link has no game code.'; return; }
@@ -568,6 +588,7 @@ async function start() {
   squash = Math.cos(origin[1] / 1e5 * Math.PI / 180);
   buildPaths();
   resize();
+  growForest();
   requestAnimationFrame(frame);
   load();
   if (new URLSearchParams(location.search).get('view') === '3d') setMode('3d');

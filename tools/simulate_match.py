@@ -3,8 +3,7 @@
     python3 tools/simulate_match.py ENGINE_DIR RUSH_AI_DIR OUT_DIR [seed] [town]
 
 ENGINE_DIR: prototypes/town-rush of a checkout (codex/town-rush-launch-fixes matches live).
-TOWN: a town id the engine knows (default: the engine's default town). The preview's Molde
-      data was recorded with `... data 7 molde`.
+TOWN: a town id the engine knows (default: the engine's default town). Cities use their own id.
 Seats: the user's rush-ai (in-process, same interface as the CLI), two ReferenceBots and two
 StarterBots. Outputs:
   game.json   the public feed (engine.feed.from_replay, exactly what /api/games serves) + looks
@@ -25,48 +24,12 @@ TOWN = sys.argv[5] if len(sys.argv) > 5 else None
 sys.path.insert(0, ENGINE)
 sys.path.insert(1, RUSH)
 
+import engine.simulation as simulation                     # noqa: E402
 from engine.bots import ReferenceBot, StarterBot          # noqa: E402
 from engine.feed import from_replay                        # noqa: E402
 from engine.replay import Recorder                         # noqa: E402
-import engine.simulation as simulation                     # noqa: E402
-from engine.simulation import match_start, observe, step   # noqa: E402
+from engine.simulation import create_match, match_start, observe, step   # noqa: E402
 import ai as rush                                          # noqa: E402  (rush-ai/ai.py)
-
-# The engine deals products out round-robin, so the preview shop mixed milk, bread and apples on
-# every aisle. For this recording the floor is laid out by department instead (OTHER-CITIES.md,
-# planned change 4): dairy in the fridges at the back, produce in the bins near the entrance,
-# bread on the bakery rack, dry goods on the middle shelves. The engine's robots then really do
-# pick milk from the dairy fridges. Same shelf cells, same count, same products as before.
-# Each block is (x, ys, fixture, department, product types top to bottom).
-DEPARTMENTS = [
-    (3, [3, 4, 5], 'fridge', 'Dairy', ['milk', 'milk', 'yogurt']),
-    (3, [7, 8], 'fridge', 'Dairy · cream & butter', ['cream', 'butter']),
-    (7, [3, 4, 5], 'fridge', 'Cheese, eggs & juice', ['cheese', 'eggs', 'juice']),
-    (7, [7, 8], 'shelf', 'Breakfast', ['cereal', 'oats']),
-    (11, [3, 4, 5], 'shelf', 'Pantry', ['pasta', 'rice', 'pasta']),
-    (11, [7, 8], 'shelf', 'Baking', ['flour', 'sugar']),
-    (15, [3, 4, 5], 'bin', 'Vegetables', ['lettuce', 'tomatoes', 'peppers']),
-    (15, [7, 8], 'rack', 'Bakery', ['bread', 'bread']),
-    (19, [3, 4, 5], 'bin', 'Fruit', ['apples', 'bananas', 'bananas']),
-    (19, [7, 8], 'bin', 'Root vegetables', ['carrots', 'onions']),
-]
-
-
-engine_shop = simulation.make_shop
-
-
-def department_shop(rules):
-    """engine.shop.make_shop with the department layout above, or the original elsewhere."""
-    base = engine_shop(rules)
-    placed = {str(x) + ',' + str(y): (type, fixture) for x, ys, fixture, _, types in DEPARTMENTS for y, type in zip(ys, types)}
-    cells = [i['position'] for i in base['items']]
-    if len(cells) != len(placed) or any(str(x) + ',' + str(y) not in placed for x, y in cells):
-        return base
-    for item in base['items']:
-        item['type'], item['fixture'] = placed[str(item['position'][0]) + ',' + str(item['position'][1])]
-    return base
-
-simulation.make_shop = department_shop
 
 LOOKS = {
     'Kale Storm': {'shape': 'box', 'color': 'plum', 'eyes': 'visor', 'carriage': 'canvas', 'head': 'high', 'visor': 'tint', 'decal': 'dots'},
@@ -78,10 +41,54 @@ LOOKS = {
 # ids sort into seat (and shop) order
 SEATS = [('p1', 'Kale Storm', ReferenceBot), ('p2', 'Oat Runner', StarterBot), ('p3', 'Rush AI', 'rush'),
          ('p4', 'Cheddar Dash', ReferenceBot), ('p5', 'Plum Pusher', StarterBot)]
+# A realistic shop laid out like the v1 grocerybot.no store: four departments from the back wall
+# to the robots' door - DAIRY (fridges), PANTRY (shelves), PRODUCE (bins), BAKERY (bread racks) -
+# each a double row of fixtures back to back around a spine, running the shop's depth with one
+# cross aisle and two-tile aisles between departments. The engine's round-robin shelves are replaced; grid, truck bays, loading cells and
+# the robots' start cell stay the engine's, and every shelf is reachable from an aisle.
+# (department, fixture, left shelf column x, products in order; the spine is x + 1, the right column x + 2)
+DEPARTMENTS = [
+    ('Dairy', 'fridge', 2, ['milk', 'yogurt', 'cream', 'butter', 'cheese', 'eggs', 'juice']),
+    ('Pantry', 'shelf', 7, ['pasta', 'rice', 'flour', 'sugar', 'oats', 'cereal']),
+    ('Produce', 'bin', 12, ['apples', 'bananas', 'tomatoes', 'carrots', 'onions', 'peppers', 'lettuce']),
+    ('Bakery', 'rack', 17, ['bread']),
+]
+ROWS = [3, 4, 5, 7, 8, 9]          # y 6 is the cross aisle; y 1-2 stay free for the loading bays
+_engine_make_shop = simulation.make_shop
+
+
+def realistic_shop(rules):
+    shop = _engine_make_shop(rules)
+    w, h = shop['grid']['width'], shop['grid']['height']
+    if (w, h) != (23, 12):
+        raise SystemExit(f'DEPARTMENTS is drawn for the 23 x 12 shop (5 trucks), not {w} x {h}; update it')
+    walls = [cell for cell in shop['grid']['walls']]
+    items, departments, fixtures = [], [], {}
+    for name, fixture, x, products in DEPARTMENTS:
+        wanted = [p for p in products if p in rules['products']]
+        if not wanted:
+            continue
+        cells = [(x, y) for y in ROWS] + [(x + 2, y) for y in ROWS]          # left column, then right
+        # same products next to each other: each product gets a run of cells, the first ones one more
+        counts = [len(cells) // len(wanted) + (1 if i < len(cells) % len(wanted) else 0) for i in range(len(wanted))]
+        run = [p for p, n in zip(wanted, counts) for _ in range(n)]
+        for (cx, cy), product in zip(cells, run):
+            items.append({'id': f'item_{len(items)}', 'type': product, 'position': [cx, cy]})
+            fixtures[f'{cx},{cy}'] = fixture
+        walls += [[x + 1, y] for y in ROWS]                                 # the spine between the rows
+        departments.append({'name': name, 'x': x, 'y': ROWS[0], 'fixture': fixture})
+    missing = set(rules['products']) - {i['type'] for i in items}
+    if missing:
+        raise SystemExit(f'products without a shelf: {sorted(missing)}; add them to DEPARTMENTS')
+    shop['grid']['walls'], shop['items'] = walls, items
+    shop['departments'], shop['fixtures'] = departments, fixtures
+    return shop
+
+
+simulation.make_shop = realistic_shop
 ACTIONS = {'wait': 0, 'move_up': 1, 'move_down': 1, 'move_left': 1, 'move_right': 1, 'pick_up': 2, 'load': 3, 'drop_off': 3}
 
-state = simulation.create_match(seed=SEED, difficulty='medium', players=[{'id': i, 'name': n} for i, n, _ in SEATS],
-                                match_id='PREVIEW', town=TOWN)
+state = create_match(seed=SEED, difficulty='medium', players=[{'id': i, 'name': n} for i, n, _ in SEATS], match_id='PREVIEW', town=TOWN)
 bots = {}
 for pid, _, kind in SEATS:
     start = match_start(state, pid)
@@ -169,9 +176,7 @@ for oid, o in state['orders'].items():
 shop = state['shop']
 with open(os.path.join(OUT, 'shop.json'), 'w') as f:
     json.dump({'seed': SEED, 'grid': shop['grid'], 'items': [[i['position'][0], i['position'][1], products.index(i['type'])] for i in shop['items']],
-               'fixtures': [[i['position'][0], i['position'][1], i.get('fixture', 'shelf')] for i in shop['items']],
-               'departments': [{'name': name, 'fixture': fixture, 'x': x, 'cells': [[x, y] for y in ys]}
-                               for x, ys, fixture, name, _ in DEPARTMENTS],
+               'departments': shop.get('departments', []), 'fixtures': shop.get('fixtures', {}),
                'bays': [b['bay'] for b in shop['bays']], 'loadCells': [b['load_cells'] for b in shop['bays']], 'spawn': shop['spawn'],
                'products': products, 'botsPerPlayer': rules['bots_per_player'], 'trucksPerPlayer': rules['trucks_per_player'],
                'botCapacity': rules['bot_capacity'], 'tickSeconds': rules['tick_seconds'], 'lateStepTicks': rules['late_step_ticks'],

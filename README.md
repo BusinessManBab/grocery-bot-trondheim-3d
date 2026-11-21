@@ -9,26 +9,34 @@ built for **Trondheim** with the steps in [OTHER-CITIES.md](OTHER-CITIES.md):
 - The full play area and street network, water, Trondheimsfjorden, the Nidelva, the green areas
   and place names from OpenStreetMap (`data/game-map.json`), with 87 of 88 delivery homes matched
   to real building footprints (`data/buildings.json`).
+- Cartoon buildings from all 11,876 OSM footprints (`src/buildings3d.js`): OSM building types and
+  colours, pitched (gable) roofs on small houses and rectangular blocks, parapet/flat roofs on
+  larger ones, window facades, eaves and varied wall/roof colours. Everything is merged into a
+  handful of meshes, so the detail costs draw groups rather than draw calls; order homes keep
+  their own materials so they still highlight.
 - Sea, fjord and river: the fjord stays still, the Nidelva current runs downstream, and no trees
   grow on or next to water.
 - Bridges: 14 road crossings of the Nidelva and the fjord arms run on raised decks with railings
   and piers; trucks drive over them. The longest deck is 137 map units (about 150 m), no quay
   turned into a bridge.
+- Forests: 2,979 trees (2,302 spruce, 677 birch) planted from Trondheim's mapped woodland
+  (Bymarka's edge, Estenstadmarka and the city woods), with fields, built-up land and parks kept
+  clear. `src/forest.js` feeds both views, so the 2D map also paints green under the same trees.
 - Shop window (bottom right): the v1 grocerybot.no store animation (Erik's `arena.js`, ported
   to `src/shop-iso.js`) showing the robots and trucks inside a shop as the match plays, switched
-  by clicking any shop; order card (left) when you click an order house.
-  - The shop floor is laid out by department, not round-robin: dairy fridges at the back,
-    cheese/eggs/juice beside them, breakfast and baking shelves, pantry shelves, produce bins
-    and the bakery rack together, with a sign over every section. The recorded match really
-    picks milk from the dairy fridges (`tools/simulate_match.py`).
-  - The trucks in the bays are the player's own map trucks: `looks.js` `truckArt(look)`, with
-    the same carriage, cab, visor, decal, colour and expression as the trucks driving that
-    player's routes, plus the rear loading door, cargo and order tag.
-- Forests: 2,979 trees planted from Trondheim's mapped woodland (Bymarka's edge, Estenstadmarka
-  and the city woods), with fields, built-up land and parks kept clear.
+  by clicking any shop **or any row in Standings**; order card (left) when you click an order
+  house.
+  - The shop is the v1 store layout: four signed departments from the back wall forward —
+    **Dairy** (fridges), **Pantry** (shelves), **Produce** (bins) and **Bakery** (racks) — as
+    back-to-back rows around a spine with two-tile aisles, not the engine's round-robin shelves.
+    The recorded match really picks milk from the dairy fridges (`tools/simulate_match.py`).
+  - The trucks in the bays are the player's own map trucks: `looks.js` `truckArt(look)` with the
+    same carriage, cab, visor, decal and colour as the trucks driving that player's routes, plus
+    map-style roof faces (flatbed crates for the flatbed look), the rear loading door, cargo and
+    order tag.
 - The replay is a simulated 600-tick match with the user's rush-ai, recorded from the engine on
-  the Trondheim map (`tools/simulate_match.py ... data 7 trondheim`): 5 seats, Rush AI wins with
-  4,787 points and 57 deliveries.
+  the Trondheim map (`tools/simulate_match.py ... data 7 trondheim`): 5 seats, Rush AI finishes
+  with 1,882 points and 41 deliveries against the reference and starter bots.
 
 To make this for another town, follow [OTHER-CITIES.md](OTHER-CITIES.md) (data scripts in
 `tools/build_city.py`).
