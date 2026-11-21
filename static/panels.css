@@ -1,0 +1,42 @@
+/* Shop window (bottom right) and order card (left), in the game page's panel language. */
+.g-shop, .g-order { position: absolute; z-index: 3; background: #fffdf7; border: 1px solid var(--line); border-top: 3px solid var(--seat, #c8102e);
+  border-radius: 16px; box-shadow: 0 6px 24px rgba(23, 20, 18, .1); color: var(--ink); }
+.g-shop[hidden], .g-order[hidden] { display: none; }
+.g-x { flex: none; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 50%; background: #fff; color: var(--ink);
+  font: inherit; font-size: 18px; line-height: 1; font-weight: 700; cursor: pointer; display: grid; place-items: center; padding: 0 0 2px; }
+.g-x:hover { border-color: var(--ink); }
+.g-x:focus-visible, .g-order-shop:focus-visible { outline: 3px solid var(--red); outline-offset: 2px; }
+
+.g-shop { right: 16px; bottom: 88px; width: min(540px, 42vw); padding: 10px 12px 10px; }
+.g-shop header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.g-shop h2 { flex: 1; margin: 0; font-size: 15px; font-weight: 900; letter-spacing: -.01em; }
+.g-shop-face { width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 2px var(--seat); display: grid; place-items: center; overflow: hidden; }
+.g-shop-face svg { width: 20px; height: 24px; display: block; }
+.g-shop-svg { display: block; width: 100%; height: auto; aspect-ratio: 1.7; border-radius: 10px; background: linear-gradient(#f7f3ee, #efe9e2); }
+.g-shop-foot { margin: 6px 0 0; font-size: 11.5px; font-weight: 700; color: var(--muted); line-height: 1.35; }
+body.has-shop .g-board { max-height: calc(100% - 76px - 88px - 14px - var(--shop-h, 400px)); min-height: 120px; }
+
+.g-order { left: 16px; top: 120px; width: 292px; padding: 12px 14px 12px; font-size: 13px; }
+.g-order header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.g-order h2 { margin: 0; font-size: 16px; font-weight: 900; }
+.g-order h3 { margin: 10px 0 4px; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.g-order-where { margin: 2px 0 8px; color: var(--muted); font-weight: 700; }
+.g-order-status { margin: 0; padding: 7px 10px; border-radius: 10px; background: color-mix(in srgb, var(--seat) 14%, #fff); border-left: 4px solid var(--seat); font-weight: 800; line-height: 1.3; }
+.g-order-shop { all: unset; cursor: pointer; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.g-order-items { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.g-order-items li { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px 3px 6px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font-weight: 700; font-size: 12px; }
+.g-order-items i { width: 10px; height: 10px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(23, 20, 18, .15); }
+.g-order dl { margin: 10px 0 0; display: grid; gap: 6px; }
+.g-order dl div { display: grid; grid-template-columns: 74px 1fr; gap: 8px; align-items: baseline; }
+.g-order dt { font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.g-order dd { margin: 0; font-weight: 700; }
+.g-happy { display: inline-block; vertical-align: middle; width: 54px; height: 7px; border-radius: 4px; background: var(--line); overflow: hidden; margin-right: 4px; }
+.g-happy b { display: block; height: 100%; border-radius: 4px; }
+
+@media (max-width: 760px) {
+  .g-shop { left: 10px; right: 10px; width: auto; bottom: calc(86px + 34vh); padding: 8px 10px; }
+  .g-shop-foot { display: none; }
+  .g-order { left: 10px; right: 10px; top: 104px; width: auto; max-height: 40vh; overflow: auto; }
+  body.has-shop .g-board { max-height: 34%; }
+}
+

@@ -1,0 +1,26 @@
+/* 2D / 3D switch: same pill language as the brand, status and Leaderboard pills. */
+.g-right { display: flex; align-items: center; gap: 8px; }
+.g-view { display: flex; align-items: center; gap: 2px; height: 44px; padding: 4px; border-radius: 22px; background: #fffdf7; border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(23, 20, 18, .08); }
+.g-view button { height: 34px; min-width: 46px; padding: 0 12px; border: 0; border-radius: 17px; background: transparent; color: var(--ink); font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.g-view button:hover { background: rgba(23, 20, 18, .06); }
+.g-view button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+.g-view button:focus-visible { outline: 3px solid var(--red); outline-offset: 1px; }
+
+.g-3d { cursor: grab; }
+.g-3d:active { cursor: grabbing; }
+.g-3d canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+body.is-3d #map { pointer-events: none; }
+body.is-3d #terrain { visibility: hidden; }
+.g-hint { position: absolute; left: 24px; top: 92px; margin: 0; color: #67594b; font-size: 11px; font-weight: 700; }
+
+@media (max-width: 760px) {
+  .g-right { margin-left: auto; }
+  .g-view { height: 40px; }
+  .g-view button { height: 30px; min-width: 40px; padding: 0 10px; font-size: 13px; }
+  .g-status { margin-left: 0; }
+  .g-hint { display: none; }
+}
+.g-3d[hidden] { display: none; }
+@media (max-width: 760px) {
+  .g-credit { top: 112px; }
+}
