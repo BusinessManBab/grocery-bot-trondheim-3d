@@ -1,16 +1,73 @@
 # Making the 2D/3D hills map for another town
 
 This repo shows one Grocery Bot game on the Kongsberg map, in 2D (the live game page) and 3D
-(real terrain, real buildings, a flowing river). It also has a shop window, which shows the robots
-inside a shop, and an order card, which shows what a clicked order contains. Nothing in the page code is specific to
-Kongsberg: everything town-specific lives in `data/`. To do another town, you swap in that town's
-data files and publish a copy of the repo.
+(real terrain, real buildings, forests, bridges and a flowing river). It also has a shop window,
+which shows the robots inside a shop, and an order card, which shows what a clicked order
+contains. Nothing in the page code is specific to Kongsberg: everything town-specific lives in
+`data/`. To do another town, you swap in that town's data files and publish a copy of the repo.
 
-Tested so far: Kongsberg end to end, and Molde end to end (published at
-https://businessmanbab.github.io/grocery-bot-molde-3d/ — 84 of 90 delivery homes matched a real
-building, terrain 0–443 m, shop window with the player's own map trucks and a department layout).
-Oslo's data files build with these steps (89 of 90 delivery homes matched a real building, terrain
-0–102 m), but no Oslo page has been published yet, because there is no Oslo replay (see step 2).
+**What's on the map:**
+- terrain from real elevation data (see Steps 4 and "Settings");
+- real buildings in a **cartoon style that follows what each building really is** (house,
+  apartments, shop, industrial, garage, church), with each order's house highlighted (Step 3 and
+  "Cartoon buildings");
+- **forests on empty land and mapped woodland, with green under them on the 2D map**
+  (Step 4b and "Forests");
+- bridges over the water ("Bridges");
+- river streaks showing the current ("How the river direction is worked out");
+- the shop window and the order card ("Shop window and order card").
+
+Agreed but not built yet: see "Planned changes".
+
+**Updates:**
+- **2026-11-21, guide:** new section "The 3D map's style" (map layers, roads, lighting, 3D shops,
+  3D trucks, order-house highlights, sizing, camera, labels and clicks). "Planned changes" marked
+  as built.
+- **2026-11-21, shop like the v1 store:** the shop window's floor now copies the v1 grocerybot.no
+  store:
+  - four departments from the back wall to the robots' door, each a double row of fixtures back
+    to back around a spine, the shop's full depth with one cross aisle: **DAIRY** (fridges: milk,
+    yogurt, cream, butter, cheese, eggs, juice), **PANTRY** (shelves: pasta, rice, flour, sugar,
+    oats, cereal), **PRODUCE** (bins: apples, bananas, tomatoes, carrots, onions, peppers,
+    lettuce), **BAKERY** (racks: bread);
+  - one sign per department, and the same products side by side;
+  - two-tile aisles so 20 robots don't jam.
+
+  The match was recorded again. Plum Pusher's trucks (and every cab and carriage) now get roof
+  faces that follow their real shape: flatbed crates instead of one floating slab, and the
+  slanted and nose cabs get their own roof shapes and light bar.
+- **2026-11-21, shop window:**
+  - clicking a player in the Standings opens their shop window;
+  - the shop window's trucks are each player's own trucks, the same as on the map;
+  - the shop is laid out like a real store: dairy and drinks fridges at the back, pantry and
+    breakfast shelves in the middle, the bakery and fruit and vegetable bins by the door, with
+    department signs;
+  - a new match was recorded with that layout.
+
+  Details under "Shop window and order card" and "Planned changes" 2–4 (now done).
+- **2026-11-21, cartoon buildings:** every building, order homes included, is styled from its OSM
+  type:
+  - houses get steep pitched roofs (gabled or hipped) with thick eaves, a chimney, a front door
+    and framed windows on wooden cladding;
+  - apartment blocks get window rows with balconies, a flat roof with a rim and a rooftop box;
+  - shops and offices get big shop windows and a sign band;
+  - industrial buildings get corrugated walls;
+  - garages and sheds get garage doors and low roofs;
+  - the church gets a tower and spire.
+
+  The town totals 624k vertices and about 5 draw calls, and runs at the same 58–60 fps as
+  before. Method in "Cartoon buildings". The buildings data step now also writes each building's
+  OSM type and roof/colour tags.
+- **2026-11-21, trees:** about 18,300 forest trees (spruce and birch) on OSM forest and woodland,
+  and on empty land more than ~35 m from buildings. Fields, built-up land, parks, roads and water
+  stay clear. Green is painted under every tree on the 2D map and the 3D ground, so wooded areas
+  show in 2D too. Still 60 fps. New data step: `build_city.py landcover`. Details in "Forests".
+- **2026-11-21:** bridges; the shop window uses the v1 store animation and is bigger; order card;
+  realistic-shop and other planned changes written up.
+
+Tested so far: Kongsberg end to end. Oslo's data files build with these steps (89 of 90
+delivery homes matched a real building, terrain 0–102 m), but no Oslo page has been published
+yet, because there is no Oslo replay (see step 2).
 
 ---
 
@@ -20,8 +77,9 @@ Oslo's data files build with these steps (89 of 90 delivery homes matched a real
 |---|---|---|
 | `game-map.json` | The town's flat map: bounds, roads, water, green areas, delivery homes, labels | The game repo's town pipeline (step 1) |
 | `game.json` | One finished game played **on that same map** | The game server's `/api/games/CODE?since=0` (step 2) |
-| `buildings.json` | OSM building footprints, with each delivery home matched to its real building | `tools/build_city.py buildings` |
+| `buildings.json` | OSM building footprints, with each delivery home matched to its real building, plus each building's OSM type, `roof:shape`, `building:colour` and `roof:colour` (for the cartoon style) | `tools/build_city.py buildings` |
 | `terrain.bin` + `terrain.json` | Elevation grid over the map bounds | `tools/build_city.py terrain` |
+| `landcover.json` | OSM forest and woodland (trees go here) and fields, meadows and built-up land (no trees). Optional: without it there is no forest | `tools/build_city.py landcover` |
 | `shop.json` + `shop.bin` | Inside the shops: robot positions, what they carry, truck loading; every order's items, address and timeline. Optional: without them the page simply has no shop window or order card | The full engine replay of the same game (see "Shop window and order card") |
 
 Everything else (`index.html`, `src/`, `static/`, `assets/`) stays as it is.
@@ -117,6 +175,19 @@ the bounds. It prints the height range: Kongsberg is 123–352 m and Oslo 0–10
 The tiles have seabed depths under the sea. The script clamps everything below 0 m to 0 m, so the
 sea surface stays flat.
 
+### 4b. Land cover for the forest: `data/landcover.json`
+
+```sh
+python3 tools/build_city.py landcover --osm .cache/osm-landcover.json
+```
+
+This makes one Overpass query (cached like the buildings one) for these areas in the map bounds:
+- **Trees:** `landuse=forest`, `natural=wood`/`scrub`.
+- **Never trees:** fields, meadows, grass, residential, industrial, commercial and retail land,
+  cemeteries, railways, wetland and bare rock.
+
+Kongsberg has 21 wooded and 48 open areas.
+
 ### 5. Bump the cache version
 
 GitHub Pages' CDN serves old JavaScript for up to 10 minutes. Raise `?v=N` everywhere it appears:
@@ -147,11 +218,19 @@ Things to check (see the next section for what to change):
 - [ ] River streaks run downstream, and the sea or lakes have none
 - [ ] Place labels are in the right spots
 - [ ] Phone width: the 2D/3D switch does not cover anything important
-- [ ] The shop window opens on "Your shop", switches when you click another shop, closes with ×
-      and comes back when you click a shop
+- [ ] The shop window opens on "Your shop", switches when you click another shop or a standings
+      row, closes with × and comes back when you click a shop or a row
+- [ ] The shop window's trucks look like that player's trucks on the map
+- [ ] The shop window shows the v1 store layout: DAIRY, PANTRY, PRODUCE, BAKERY double rows from
+      the back wall, one sign each, the same products side by side
+- [ ] Every look's trucks look clean in the shop window (check flatbed, slanted and nose cabs)
 - [ ] In the shop window, robots carry and load items, trucks back in and drive off, and truck
       tags fill up as the replay plays
 - [ ] Roads cross rivers on raised bridges with railings, and the road surface shows on the deck
+- [ ] Buildings look like what they are (pitched-roof houses with chimneys and doors, apartment
+      blocks with balconies, flat-roofed shops and sheds, church with a spire), and 3D fps is unchanged
+- [ ] The empty hillsides around town are forest in 3D, with green under them on the 2D map
+      (and on the 3D ground). Fields, town, parks, roads and water have no forest trees
 - [ ] Clicking an order house opens the order card with the right items, times and happiness
 
 ### 7. Publish
@@ -174,13 +253,22 @@ gh2 api -X POST repos/BusinessManBab/grocery-bot-T-3d/pages -f 'source[branch]=m
   animation**, Erik's isometric store from `public/static/arena.js` on `main`, ported to
   `src/shop-iso.js`. It is driven by the recorded match instead of the homepage's canned replay,
   so it shows what is really happening in that shop at that tick:
-  - **The store:** the same floor, walls, red bay markings and Grocery Bot sign, with fridges
-    (dairy, juice), produce bins, bread racks and shelves. The v1 departments are gone because
-    the v2 shop mixes products, so each shelf gets the fixture of its product.
+  - **The store:** the same floor, walls, red bay markings and Grocery Bot sign, laid out like a
+    real grocery store, with red department signs as on the v1 homepage:
+    - four departments from the back wall to the robots' door, as in the v1 store: **Dairy**
+      (fridges), **Pantry** (shelves), **Produce** (bins), **Bakery** (bread racks);
+    - each department is a double row of fixtures back to back around a spine, across the
+      shop's depth with one cross aisle, and one sign over it;
+    - the same products sit next to each other.
+
+    Fixtures and signs come from the shop layout (`shop.json` → `departments`, `fixtures`). See
+    "A realistic shop" under "Planned changes".
   - **The robots:** Grocery Bots in the player's own look (shape, colour, eyes). They walk tile to
     tile, look the way they last moved, hop when they pick, carry what they picked in their basket,
     and cheer when they load it into a truck.
-  - **The trucks:** the v1 trucks in the player's colour. Each backs into its bay when it comes
+  - **The trucks:** each player's **own trucks, exactly as on the map**. The side of each truck
+    is the same `looks.js` truck art the 2D and 3D map trucks use (carriage, cab, visor, decal,
+    colour), with roof faces in the look's colours. Each backs into its bay when it comes
     home, with hazard lights, and drives off with its door closing when it leaves. The tag above it
     has one square per queued item, filled as robots load it (`+N` past 10 items), and the loaded
     goods show inside the cargo box.
@@ -188,8 +276,9 @@ gh2 api -X POST repos/BusinessManBab/grocery-bot-T-3d/pages -f 'source[branch]=m
   - **The standings** shrink to fit above the window (`--shop-h`).
 - **Its title:** "Your shop" for the viewer's own seat (`meta.you` in `game.json`), otherwise
   "<name>'s shop".
-- **Switching and closing:** clicking any shop on the map, in 2D or 3D, switches the window to
-  that shop. × closes it, and clicking any shop brings it back.
+- **Switching and closing:** clicking any shop on the map (2D or 3D), or **any player in the
+  Standings**, switches the window to that shop. A standings click also focuses that player's
+  fleet, as before. × closes the window, and clicking any shop or standings row brings it back.
 - **Order card (left):** clicking a house with an order opens it. It shows the order number and
   street address, its status (open; claimed and being picked, loaded or ready; on the way;
   delivered; expired), the items, when it was ordered and how long ago (game clock, like the
@@ -229,6 +318,9 @@ option yet.
 - `shop.json`:
   - the floor: `grid {width, height, walls}`; `items [[x, y, product index]]` (shelf cells);
     `bays [[x, y]]`; `loadCells`; `spawn`; `products`
+  - the departments: `departments [{name, x, y, fixture}]` (one per shelf block, at its first
+    cell) and `fixtures {"x,y": fridge|shelf|bin|rack}`. Both are optional; without them the
+    window guesses a fixture from each product.
   - the rules the card uses: `botsPerPlayer`, `trucksPerPlayer`, `tickSeconds`, `lateStepTicks`,
     `lateStepPercent`
   - the binary layout: `seats`, `ticks`, `frameBytes`
@@ -250,80 +342,85 @@ frames and the order details, plus `meta.you` from the signed-in account. During
 should only show what rivals can already see, or only start once the game is over, because
 showing rivals' robots, claims and items live would leak strategy.
 
-## Planned changes (not built or deployed yet)
+## Planned changes (all four now built)
 
-These are agreed requirements for the next version of the map. None of them is live on the
-preview yet. Each lists what it should do, how to build it, and how to check it.
+These started as agreed requirements written before building them. All four have since been built
+on the preview; each says how, then keeps the original spec for reference.
 
-### 1. Buildings with real-world detail, without making the 3D view lag
+### 1. Buildings with real-world detail, without making the 3D view lag: done
 
-**Goal:** buildings should look like real buildings (roof shapes, windows, varied colours),
-like the town in real life. Detail must never cost smoothness: the 3D view has to stay at about
-60 fps on an ordinary laptop with the whole town in view.
+Built on 2026-11-21 as the cartoon buildings; see "Cartoon buildings" below.
 
-**How:**
-- **Roofs:** small houses (OSM `house`, `detached`, `semidetached_house`, `terrace`, or any building
-  up to about 2 storeys) with a roughly rectangular footprint get a **pitched (gable) roof**:
-  - the ridge runs along the longest side, at about 30–40° (typical for Norway);
-  - small eaves overhang;
-  - a gable triangle closes each end.
+### 2. The shop window uses the same trucks that drive on the map: done
 
-  "Roughly rectangular" means the footprint fills at least ~85% of its oriented bounding
-  rectangle. Larger blocks keep flat roofs. Use OSM `roof:shape` when it is mapped.
-- **Windows:** one small shared, repeating **facade texture** (a window bay about 3.4 m wide and a
-  storey high) on all walls. The UVs are distance along the wall ÷ bay width, and height above the
-  ground ÷ storey height. There is no geometry per window.
-- **Colours:** muted, varied **wall and roof colours** as vertex colours. Walls are pale (white,
-  cream, light ochre, light grey) and roofs dark (slate grey, brown-red). Use OSM `building:colour`
-  and `roof:colour` when mapped, toned down to the map palette. Context buildings must stay paler
-  than the order homes, so highlighted orders still stand out.
-- **Keep the draw calls:** all context buildings remain **one merged mesh**, so the detail adds
-  vertices and one texture, not draw calls. Order homes keep their own materials (they change
-  colour) but get the same roofs and windows.
-- **Budget:** at most ~650k vertices for all buildings (today ~425k), and no per-frame work for
-  buildings.
-- If a town is much denser than Kongsberg, drop windows on buildings smaller than ~40 m², or use
-  flat roofs beyond a distance from the camera.
+Built on 2026-11-21. In `src/shop-iso.js`, `truckMarkup` draws the player's side-view truck art
+(`truckArt(look)` from `looks.js`, the art the map trucks use) on the visible side of the isometric
+truck with an affine transform:
+- svg x −74 (rear) … 70 (cab) runs along the truck, u = 0 … −3.1 cells;
+- svg y 38 is the ground;
+- height scales by 0.344.
 
-**Check:** measure fps with the whole town in view before and after (the screenshot script logs
-`fps-test`). It must not drop. Roofs should meet the walls without gaps on slopes, and the order
-homes must still be easy to spot.
+Roof faces follow each look's real shape:
+- cab roofs only where each cab is flat (`CAB_ROOFS`: flat, high, nose with its lower hood,
+  slanted), in the player's colour, plus a dark bar for the `lights` visor;
+- box and cooler carriages get a white roof (the cooler also its unit on top), canvas carriages a
+  cloth roof;
+- flatbeds get the wooden bed with each crate's top in its colour, lowest first.
 
-### 2. The shop window uses the same trucks that drive on the map
+The first version used one flat slab for every cab and covered flatbeds, which looked scuffed on
+Plum Pusher's slanted, flatbed truck. The rolling rear door, the loaded goods and the order tag are kept.
+`setPlayer` switches the art when the window switches shop. Checked against the map for every
+look: plum canvas with dots, yellow cooler with the nose cab, black flatbed with roof lights, and
+so on.
 
-**Goal:** the trucks parked at the bays in the shop window are the player's own trucks, with the
-same carriage, cab, visor, decal and colour as that player's trucks on the 2D and 3D map (from
-`looks.js`). Not the generic v1 truck.
+### 3. Clicking a player in the standings opens their shop window: done
 
-**How:**
-- In `src/shop-iso.js`, draw the player's side-view truck art (`truckArt(look)` from `looks.js`,
-  the same art the map uses) on the visible side of the isometric truck with an affine transform:
-  - svg x −74 (rear) … 70 (cab) runs along the truck's length, u = 0 … −3.1 cells;
-  - svg y 38 is the ground;
-  - height scales by about 0.344, so the 90-unit-tall art matches the v1 truck's 31-unit cargo box.
-- Add roof faces in the look's colours (shell, canvas cloth or flatbed wood; the cab in the
-  player's colour).
-- Keep the parts that show what is loaded: the rolling rear door, the goods inside, and the order
-  tag above the truck.
-- When the window switches shop, it switches truck look too (`setPlayer`).
+Built on 2026-11-21. The standings row click in `src/game-view.js` focuses the fleet as before
+and calls `panels.showShop(player.seat)`. The window switches to that player ("Your shop" on your
+own row) and reopens if it was closed. Checked for all five rows.
 
-**Check:** for each of the five looks, the docked trucks in the shop window match the trucks
-driving that player's routes on the map.
+### 4. A realistic shop: groceries where they belong: done in the preview (v1 store layout)
 
-### 3. Clicking a player in the standings opens their shop window
+Built in the preview on 2026-11-21 and then changed to copy the v1 grocerybot.no store (the
+reference image).
 
-**Goal:** clicking a player's row in **Standings** also shows that player's shop in the bottom
-right ("Your shop" for your own row, "<name>'s shop" otherwise). It reopens the window if it was
-closed. It works the same in 2D and 3D, and on phones.
+**Layout:** `tools/simulate_match.py` replaces the engine's `make_shop` with `realistic_shop`. It
+keeps the engine's grid, truck bays, loading cells and robot start cell, and builds the shelves
+from `DEPARTMENTS`:
 
-**How:** in `src/game-view.js`, the standings row click already focuses that player's fleet
-(`play.focus`). It should also call `panels.showShop(player.seat)`. Clicking the same row again
-clears the fleet focus as today, but leaves the shop window on that player. Use × to close it.
+| Department | Fixture | Shelf columns (spine) | Products, in order |
+|---|---|---|---|
+| Dairy | fridge | x 2 and 4 (3) | milk, yogurt, cream, butter, cheese, eggs, juice |
+| Pantry | shelf | x 7 and 9 (8) | pasta, rice, flour, sugar, oats, cereal |
+| Produce | bin | x 12 and 14 (13) | apples, bananas, tomatoes, carrots, onions, peppers, lettuce |
+| Bakery | rack | x 17 and 19 (18) | bread |
 
-**Check:** clicking each row switches the shop window and its title. Clicking a shop on the map,
-and the status link in the order card, still work.
+- **Rows:** y 3–5 and 7–9, so row 6 is the cross aisle and rows 1–2 stay free for the loading
+  bays.
+- **Aisles:** two tiles wide between departments (x 5–6, 10–11, 15–16, 20–21), plus x 1 on the
+  left.
+- **Products:** each department fills its left column top to bottom, then its right column. Each
+  product gets a run of neighbouring cells (12 cells shared out, the first products one extra),
+  48 shelf cells in all.
+- **Spines:** wall cells. The engine and every bot (reference, starter and rush-ai) already treat
+  walls as obstacles, so nothing else changes.
+- **Size:** the table is drawn for the 23 × 12 shop (5 trucks). The script stops with a message
+  for another size.
 
-### 4. A realistic shop: groceries where they belong
+**Shop window:** `shop.json` → `departments` and `fixtures` give each shelf its fixture. Spines get
+their neighbours' height in the plain spine colour, and each department gets one sign centred over
+its double row, as in the v1 `arena.js`.
+
+**Effect on the game:** in this recorded match (seed 7) every team scores less than with the
+engine's shelves. The reference bots score 3,557 and 3,156. Rush AI scores 1,528 from 40
+deliveries, the same delivery count but with lateness and missed-order penalties, because its
+tuning assumes the old shop with shelves close together. A single-tile aisle between Dairy and
+Pantry was worse (robots jammed), hence the two-tile aisles. Retune bots before using this layout
+in the real game.
+
+**Real game:** it still uses the round-robin shelves, and changing it needs the approval below.
+
+The original proposal follows. It was replaced by the layout above.
 
 **Goal:** the shop floor should look and work like a real grocery store. Products of a kind
 belong together in departments with the right fixtures: milk and dairy in the fridges at the
@@ -347,14 +444,16 @@ milk from the bread rack.
 |---|---|---|---|
 | x 3, upper | Dairy | fridge | milk, milk, yogurt |
 | x 3, lower | Dairy | fridge | cream, butter |
-| x 7, upper | Cheese, eggs and juice | fridge | cheese, eggs, juice |
-| x 7, lower | Breakfast | shelf | cereal, oats |
-| x 11, upper | Pantry | shelf | pasta, rice, pasta |
-| x 11, lower | Baking | shelf | flour, sugar |
-| x 15, upper | Vegetables | bin | lettuce, tomatoes, peppers |
-| x 15, lower | Bakery | rack | bread, bread |
-| x 19, upper | Fruit | bin | apples, bananas, bananas |
-| x 19, lower | Vegetables | bin | carrots, onions |
+| x 7, upper | Dairy | fridge | cheese, eggs, milk |
+| x 7, lower | Drinks | fridge | juice, juice |
+| x 11, upper | Pantry | shelf | pasta, rice, sugar |
+| x 11, lower | Breakfast | shelf | cereal, oats |
+| x 15, upper | Bakery | rack | bread, bread, flour |
+| x 15, lower | Vegetables | bin | carrots, onions |
+| x 19, upper | Fruit | bin | apples, bananas, tomatoes |
+| x 19, lower | Vegetables | bin | peppers, lettuce |
+
+(A first build used this single-column layout; it was replaced by the v1 store layout above.)
 
 Dairy is at the back, far from the entrance, as in real stores. Fruit, vegetables and bread are
 next to it.
@@ -399,6 +498,182 @@ All of these are constants in `src/view3d.js`; search for the name.
 | `STREAKS` | flowing cells ÷ 6, max 1400 | How many current streaks are drawn on rivers | Very wide rivers |
 | `cells.length < 120` | | Water areas smaller than this (about 5,000 m²) get no current | Small streams that should move |
 | `SEA` | 2 m above sea level | Water lower than this is the sea or a fjord: still, and where rivers end | Rarely |
+| `PALETTE`, `STYLE_OF`, `BAY` (`src/buildings3d.js`) | | Cartoon building colours, which OSM type gets which style, window spacing | Towns with a different building tradition (brick, stucco, colourful wooden rows) |
+| `FOREST_STEP` (`src/forest.js`) | `11` | Spacing of candidate forest trees (about 12 m); fewer trees when larger | Bigger or more wooded towns, to keep fps |
+| `FOREST_MAX` (`src/forest.js`) | `22000` | Most forest trees planted | Raise only after checking fps |
+| Building distance in `plantForest` | `32` units (~35 m) | Empty land closer than this to a building gets no forest | Spread-out villages (lower) or dense towns (higher) |
+
+## The 3D map's style
+
+How the 3D view (`src/view3d.js`, three.js 0.170) keeps the 2D map's look and adds depth. Read
+this first when restyling, then the sections below for buildings, forests and bridges.
+
+**Map layers keep their 2D colours.**
+- **Ground:** the 2D map's paper (`#f0e9d8`), park green (`#c9d8ac`) and water (`#86b8c5`) are
+  painted once into a canvas texture, up to 4,096 px on the long side. The texture is draped over
+  the terrain grid as a lit mesh, so slopes shade themselves while flat ground stays its 2D colour.
+- **Roads:** the same five strokes as the 2D map, as flat ribbons with round joins, laid in
+  2D order (lane, street casing, major casing, street, major). Half widths in map units: lane 2.2,
+  street 7.5/5, major 11/8.2. They're cut into ~6-unit pieces so they follow the ground. They
+  don't write depth and use polygon offset, so they lie on the terrain without flicker
+  (`renderOrder` 2–6, after the ground at 1).
+- **Board edge:** a skirt drops from the terrain's edge to a flat base 26 units down, so the map's
+  borders read as the edge of a board (`SLAB`).
+- **Lighting:** a hemisphere light plus a sun (`SUN_DIR`), set so flat ground comes out at its 2D
+  colour. The sun's shadow map follows the camera target, sized to the view, so shadows stay sharp.
+  A soft fog in the page colour fades the far edge, and dusk is the 2D dark overlay drawn over the
+  3D view.
+
+**Shops** (`buildShop`) are the 2D shop drawing as a little building:
+- cream walls with brown corner posts and plinth, a band in the player's colour, and an 8-tile
+  striped awning;
+- a window and a door, and the red GROCERY BOT sign on two posts;
+- a deep footing so it can stand on a slope (it rests on its highest corner);
+- buildings and trees within `PLAZA` are cleared so the real store's footprint doesn't bury it.
+
+**Trucks** (`buildTruck`) are the player's `looks.js` truck art as a model:
+- the cab's and carriage's exact SVG silhouettes are extruded (SVGLoader);
+- decals are thin boxes and discs on both sides;
+- the bot's face from `looks.js` is a texture on both doors, with the visor (shade brim, light
+  bar or tint), bumper, headlamps and wheels added;
+- they turn smoothly to their heading, tilt nose up or down on slopes and bridge ramps (`roadY`),
+  and bounce slightly while driving;
+- trails behind them are ribbons on the ground that fade over 7 ticks, as in 2D.
+
+**Order houses:** each delivery address's real building (cartoon style), coloured by order state:
+- **Colours:** cream walls with a brown roof while open; the claiming player's colour (lighter
+  walls, full-colour roof) once claimed; faded when another player is focused.
+- **Glow:** a soft disc in that colour draped over the ground around the house.
+- **Pin:** the 2D order square on a stem, floating above the roof and always about 24 px tall on
+  screen. It doesn't hide behind buildings and bobs gently.
+- **Selected:** a clicked order's pin grows 1.5× and its glow pulses.
+- **Delivered:** shows the 2D "+points" pop at the house.
+
+**Sizes, like 2D sprites.** Shops and trucks are exaggerated, as on the 2D map (`SHOP_SCALE` 2.4,
+`TRUCK_SCALE` 0.9 at the fit zoom). They scale with their own distance to the camera, as
+`(distance / fit distance)^0.65` clamped to 0.16–1.25. So they grow more slowly than the map when
+you zoom in, and a truck close to a low camera doesn't fill the screen.
+
+**Camera and hand-over.**
+- **Default:** tilted 42° (`TILT`), north up, framing the same box as the 2D `fit()`. The
+  projection centre is shifted into the free area between the panels (`setViewOffset`).
+- **Controls:** drag to pan, right-drag or two fingers to tilt and turn, double-click to fly
+  home. The orbit point rides on the ground, and the camera never goes below the hills.
+- **Switching views:** 2D → 3D starts straight down over the same spot and zoom and tilts in over
+  1.2 s; 3D → 2D keeps the spot and zoom.
+
+**Labels and clicks.** Place labels, shop name pills, parked-truck dots and "+points" pops are
+drawn on the 2D overlay canvas at projected 3D positions, in the 2D map's own styles. Clicks use
+screen-space hit areas (`picks`) that both views fill each frame: shops and order houses, with
+orders winning over a shop next to them.
+
+## Cartoon buildings
+
+**Goal:** every building, order homes included, gets a cartoon style that reflects what it looks
+like in real life, with enough detail not to look like blocks and not so much that the 3D view
+lags. The code is `src/buildings3d.js` (`createBuildings`); `src/view3d.js` uses it for the town and
+the order homes.
+
+**1. Decide what the building is.** `tools/build_city.py buildings` stores each footprint's OSM
+`building` type, plus `roof:shape`, `building:colour` and `roof:colour` (in `buildings.json` →
+`info`, parallel to `buildings`, and `homes[].info`). Each type maps to a style (`STYLE_OF`):
+
+| Style | OSM types (examples) | Look |
+|---|---|---|
+| house | house, detached, semidetached_house, terrace, cabin, residential | steep pitched roof, chimney, front door, framed cross windows on wooden cladding |
+| apt | apartments, dormitory, hotel | flat roof with a rim, rows of wide windows with balconies, rooftop box |
+| com | retail, commercial, office, school, kindergarten, civic, kiosk | big shop windows, a sign band; small ones get a pitched roof |
+| ind | industrial, warehouse, service, barn | corrugated walls, a high strip window, flat roof with a rim |
+| shed | garage, garages, shed, carport | low pitched roof, a garage door every bay |
+| church | church, chapel, cathedral | very steep roof, white walls, a tower with a dark spire |
+
+Untyped buildings (`yes`) are guessed from size and height: small and low is a house, tall is
+apartments, big and low is industrial, the rest commercial. Kongsberg is well typed (3,055 houses,
+2,769 garages, 461 terraced houses, 266 apartment blocks…). Roof shapes and colours are rarely
+mapped. When they are, they win: `roof:shape=flat` forces a flat roof, `hipped` a hipped one,
+and OSM colours are mixed half-and-half with the style palette so they stay in the map's look.
+
+**2. Roof.** The footprint's oriented rectangle is measured along its longest edge.
+- **Pitched roof:** if the style wants one and the footprint is roughly rectangular (fills at
+  least 80% of that rectangle, under 22 m wide):
+  - the ridge runs along the long side, with a cartoon-steep pitch (rise = 0.78 × half the width;
+    1.05 for churches, 0.45 for sheds);
+  - the eaves overhang 0.55 m and have a thick dark fascia;
+  - about one house in four with a near-square plan gets a hipped roof, the rest gabled;
+  - gable ends are wall triangles under the roof.
+- **Flat roof:** anything else gets a flat roof with a 0.55 m parapet rim, plus a rooftop box on
+  blocks over 380 m².
+- **Walls:** they go up to the eaves (62% of the OSM height for pitched roofs, the full height for
+  flat ones), starting below the lowest corner on slopes.
+
+**3. Windows and wall detail, without geometry.** Each style has one 128 × 128 canvas texture:
+one window bay by one storey, repeating.
+- **Mapping:** u = metres along the wall ÷ bay width (4.2 m for houses, 3.4 m apartments, 6 m
+  shops and industrial, 3 m sheds), v = height above the ground ÷ storey height (3 m × the
+  building lift).
+- **Drawing:** frames, glass with a cartoon glint, cladding lines, balconies, sign bands, garage
+  doors and corrugation are drawn into the texture.
+- **Colour:** the wall colour comes from vertex colours, divided by the texture's grey base, so
+  plain wall shows the true colour and the white frames come out lighter.
+
+**4. A few chunky details as geometry**, only where they add character:
+- a front door with a white lintel on the longest wall of houses, the church and some apartment
+  blocks, facing away from the building's centre;
+- a brick or grey chimney on four houses in five;
+- the church tower and spire;
+- the parapets and rooftop boxes.
+
+Buildings under about 30 m² (most garages and sheds) skip the fascia, parapet and door.
+
+**5. Colours.** Muted pastel walls and darker roofs per style (`PALETTE`), in the spirit of
+Norwegian towns: cream, pale yellow, white, barn red, pale grey-blue walls; slate, black,
+brown-red and terracotta roofs. A building's colours come from a hash of its index, so they stay
+the same between visits. The town stays paler than a highlighted order house.
+
+**6. Keep it cheap.**
+- **Draw calls:** the whole town is merged into one geometry per facade style plus one for roofs
+  and trim, about 6 draw calls.
+- **Vertices:** each merged geometry is indexed (`mergeVertices`), so the corners of each flat
+  face are shared: Kongsberg's 8,456 buildings plus 83 homes come to **624k vertices**.
+- **Order homes:** they use the same builder but keep their own geometry and materials. Walls and
+  roof are built white (`plain`), so the home's materials can turn them the claiming player's
+  colour. Doors and chimneys keep their colours.
+- **Measured** on the same GPU: 58.7 fps in 3D with the cartoon buildings, against 58.0 before. Keep
+  the town under ~650k building vertices.
+- **For a denser town:** drop the door and chimney below a bigger area, or skip windows on the
+  smallest buildings, before adding more geometry.
+
+**Check:** houses have pitched roofs and chimneys, blocks have flat roofs with rims, the church has
+its spire, roofs meet the walls on slopes, highlighted order houses still stand out, and fps in 3D
+matches the version before.
+
+## Forests
+
+The land the map leaves empty around a town (hillsides, slopes, the edge of the map) is usually
+forest in real life, especially in Norway. The map plants it, and both views show the same
+forest.
+
+- **Where trees go** (`src/forest.js`, `plantForest`):
+  - wherever OSM maps forest or woodland (`data/landcover.json`);
+  - on empty land that is more than ~35 m from any building and not in a field, meadow,
+    residential, industrial or other open area, park, road, water or shop plaza.
+
+  Candidates sit on a jittered grid every 11 units (about 12 m). About 85% of mapped woodland
+  spots and 70% of empty-land spots get a tree, seeded so it looks the same on every visit and in
+  both views. Kongsberg has about 18,300 forest trees.
+- **2D:** green (the map's park green, `#c9d8ac`) under every tree, a round blob per tree that
+  merges into woodland (`forestPath`). This shows on the 2D map and on the 3D ground.
+- **3D:** about 78% spruce (a cone on a short trunk) and 22% birch (a rounded crown), in muted
+  greens, slightly varied in size, height and rotation, standing on the terrain. Park trees are
+  separate and stay where they were.
+- **Cost:** all forest trees are two instanced meshes (spruce and birch) of about 20 triangles a
+  tree, so 18,000 trees are four draw calls plus their shadows. `FOREST_MAX` (22,000) caps it.
+  For bigger or more wooded towns, raise `FOREST_STEP` instead of letting the count grow, and
+  check fps.
+- **Other towns:** run the `landcover` step. The page plants the forest without code changes. In
+  a town where the empty land is really farmland or bare mountain, OSM's open areas keep it clear.
+  If OSM is sparse there, add a rule, such as no trees above the tree line, using `terrain.json`
+  heights.
 
 ## Bridges
 
