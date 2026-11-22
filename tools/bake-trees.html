@@ -1,0 +1,20 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Bake trees</title>
+<!-- Opened by tools/bake_trees.cjs. Plants the forest and park trees with the same code and the same
+     Canvas2D rasterizer the page used to run at load time, and hands back data/trees.bin. -->
+<script type="module">
+import { plantForest, plantParks, packTrees } from '../src/forest.js';
+const json = file => fetch(`../data/${file}`).then(res => res.json());
+const [town, extra, cover, game] = await Promise.all([json('game-map.json'), json('buildings.json'), json('landcover.json'), json('game.json')]);
+const origin = [(town.bounds[0] + town.bounds[2]) / 2, (town.bounds[1] + town.bounds[3]) / 2];
+const squash = Math.cos(origin[1] / 1e5 * Math.PI / 180);
+const wx = lon => (lon - origin[0]) * squash, wy = lat => -(lat - origin[1]);
+const shops = game.meta.players.map(p => [wx(p.shop[0]), wy(p.shop[1])]);
+const forest = plantForest({ town, buildings: extra.buildings, cover, wx, wy, shops });
+const parks = plantParks({ town, buildings: extra.buildings, homes: extra.homes, cover, wx, wy, shops });
+const bytes = new Uint8Array(packTrees({ forest, parks, source: new URLSearchParams(location.search).get('source') || '' }));
+let binary = '';
+for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode(...bytes.subarray(i, i + 32768));
+window.baked = { base64: btoa(binary), forest: forest.length, parks: parks.length, spruce: forest.filter(t => t[4]).length };
+</script>

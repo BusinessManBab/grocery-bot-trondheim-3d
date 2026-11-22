@@ -1,0 +1,290 @@
+{
+ "town": "Trondheim",
+ "notes": "Trondheim's trademarks: Nidarosdomen (gothic cathedral in grey-green soapstone, the west front screen between two towers with its 8 m rose window, the central tower's green copper spire, 87 m to the tip per SNL), Gamle Bybro (the 1861 bridge on stone piers with its neo-Gothic red portals, 'Lykkens portal') with the colourful wharf warehouses on stilts along the Nidelva at Kjøpmannsgata and Bakklandet, Kristiansten festning (1684, the whitewashed four-storey Donjon above the ramparts) and Tyholttårnet (124 m radio tower, revolving restaurant at 74 m). Cathedral parts, heights and roofs from OpenStreetMap building:part ways.",
+ "sites": [
+  {
+   "id": "nidarosdomen",
+   "name": "Nidarosdomen",
+   "model": "nidaros",
+   "osm": "w417245741",
+   "parts": "osm",
+   "at": [
+    10.3969,
+    63.42692
+   ],
+   "stone": "#b2b4aa",
+   "copper": "#6f9c86",
+   "spire": 87
+  },
+  {
+   "id": "gamle-bybro",
+   "name": "Gamle Bybro",
+   "model": "bybro",
+   "at": [
+    10.40143,
+    63.42824
+   ],
+   "width": 7,
+   "portal": "#b3302a",
+   "span": [
+    [
+     10.40062,
+     63.42832
+    ],
+    [
+     10.40227,
+     63.42815
+    ]
+   ]
+  },
+  {
+   "id": "bryggene",
+   "name": "Bryggene langs Nidelva",
+   "model": "wharves",
+   "buildings": [
+    [
+     10.40376,
+     63.43195
+    ],
+    [
+     10.40261,
+     63.43058
+    ],
+    [
+     10.40267,
+     63.428695
+    ],
+    [
+     10.40129,
+     63.42912
+    ],
+    [
+     10.403,
+     63.43106
+    ],
+    [
+     10.40162,
+     63.42942
+    ],
+    [
+     10.40189,
+     63.42953
+    ],
+    [
+     10.40181,
+     63.4297
+    ],
+    [
+     10.40264,
+     63.42846
+    ],
+    [
+     10.4028,
+     63.4308
+    ],
+    [
+     10.4027,
+     63.4307
+    ],
+    [
+     10.40118,
+     63.42891
+    ],
+    [
+     10.40267,
+     63.42854
+    ],
+    [
+     10.40236,
+     63.43047
+    ],
+    [
+     10.40259,
+     63.42864
+    ],
+    [
+     10.40152,
+     63.42923
+    ],
+    [
+     10.40106,
+     63.42875
+    ],
+    [
+     10.40189,
+     63.42987
+    ],
+    [
+     10.40199,
+     63.43
+    ],
+    [
+     10.40131,
+     63.429
+    ],
+    [
+     10.40289,
+     63.43092
+    ],
+    [
+     10.40196,
+     63.42974
+    ],
+    [
+     10.40552,
+     63.4313
+    ],
+    [
+     10.40357,
+     63.42943
+    ],
+    [
+     10.40329,
+     63.42929
+    ],
+    [
+     10.4037,
+     63.42969
+    ],
+    [
+     10.40482,
+     63.43071
+    ],
+    [
+     10.40464,
+     63.43063
+    ],
+    [
+     10.40457,
+     63.43052
+    ],
+    [
+     10.40418,
+     63.43012
+    ],
+    [
+     10.40404,
+     63.43005
+    ],
+    [
+     10.40397,
+     63.42993
+    ],
+    [
+     10.40495,
+     63.43082
+    ],
+    [
+     10.40519,
+     63.4311
+    ],
+    [
+     10.40519,
+     63.43087
+    ],
+    [
+     10.40422,
+     63.43245
+    ],
+    [
+     10.40388,
+     63.43209
+    ],
+    [
+     10.404,
+     63.43222
+    ],
+    [
+     10.40412,
+     63.43234
+    ],
+    [
+     10.40437,
+     63.43252
+    ],
+    [
+     10.40333,
+     63.42935
+    ],
+    [
+     10.40235,
+     63.428
+    ],
+    [
+     10.405,
+     63.43102
+    ]
+   ],
+   "at": [
+    10.403,
+    63.4301
+   ],
+   "colours": [
+    "#b8432f",
+    "#d9a441",
+    "#ece4d2",
+    "#8a4f32",
+    "#c9703a",
+    "#e3c56a",
+    "#9c2f2a"
+   ]
+  },
+  {
+   "id": "kristiansten",
+   "name": "Kristiansten festning",
+   "model": "ramparts",
+   "osm": "w10243780",
+   "keep": true,
+   "at": [
+    10.41121,
+    63.42702
+   ],
+   "height": 4
+  },
+  {
+   "id": "donjon",
+   "name": "Donjon",
+   "model": "donjon",
+   "osm": "w17693566",
+   "place": false,
+   "at": [
+    10.41058,
+    63.42689
+   ],
+   "height": 15,
+   "roofTop": 20
+  },
+  {
+   "id": "tyholttarnet",
+   "name": "Tyholttårnet",
+   "model": "tvtower",
+   "osm": "w474904230",
+   "at": [
+    10.43193,
+    63.42235
+   ],
+   "drum": [
+    70,
+    76.6
+   ],
+   "top": 124
+  }
+ ],
+ "places": [
+  {
+   "name": "Bakklandet",
+   "lon": 10.4033,
+   "lat": 63.4278
+  },
+  {
+   "name": "Stiftsgården",
+   "lon": 10.39523,
+   "lat": 63.43159
+  },
+  {
+   "name": "Torvet og Olav Tryggvason",
+   "lon": 10.39506,
+   "lat": 63.4305
+  }
+ ]
+}

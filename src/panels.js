@@ -2,7 +2,7 @@
 // order card (left: what a clicked order is, how long ago, how happy). Both read data/shop.json
 // and data/shop.bin, recorded from the engine alongside the public feed (tools/simulate_match.py).
 import { botSvg } from './looks.js';
-import { createIsoShop } from './shop-iso.js?v=20';
+import { createIsoShop } from './shop-iso.js?v=30';
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -20,10 +20,10 @@ const STATUS = {
   expired: 'Expired: no shop claimed it in time', undelivered: 'Not delivered before the day ended',
 };
 
-export async function createPanels({ game, play, you }) {
+export async function createPanels({ game, play, you, autoOpen = true }) {
   const [data, bin] = await Promise.all([
-    fetch('data/shop.json').then(res => res.ok ? res.json() : null),
-    fetch('data/shop.bin').then(res => res.ok ? res.arrayBuffer() : null),
+    fetch('data/shop.json?v=30').then(res => res.ok ? res.json() : null),
+    fetch('data/shop.bin?v=30').then(res => res.ok ? res.arrayBuffer() : null),
   ]).catch(() => [null, null]);
   if (!data || !bin) return null;               // towns without recorded shop data: no panels
   const frames = new Uint8Array(bin);
@@ -44,6 +44,9 @@ export async function createPanels({ game, play, you }) {
     document.body.classList.add('has-shop');
     win.style.setProperty('--seat', player.colour);
     $('shop-title').textContent = seat === you ? 'Your shop' : `${player.name}'s shop`;
+    const location = $('shop-location');
+    location.textContent = player.store ? `${player.store.name} · ${player.district}` : '';
+    location.hidden = !player.store;
     $('shop-face').innerHTML = botSvg(player.look);
     iso.setPlayer(player);
     trucks = truckTimeline(seat);
@@ -198,13 +201,30 @@ export async function createPanels({ game, play, you }) {
     } else timing = '';
     const counts = {};
     for (const item of order.items) counts[item] = (counts[item] || 0) + 1;
-    const items = Object.entries(counts).map(([name, n]) => `<li><i style="background:${productColour(name)}"></i>${n > 1 ? `${n} × ` : ''}${escape(name)}</li>`).join('');
+    const departmentOf = name => {
+      const index = data.products?.indexOf(name);
+      const cell = index >= 0 ? data.items.find(item => item[2] === index) : null;
+      if (!cell) return null;
+      return (data.departments || []).find(d => cell[0] >= d.x && cell[0] <= d.x + 2) || null;
+    };
+    const groups = new Map();
+    for (const [name, n] of Object.entries(counts)) {
+      const department = departmentOf(name);
+      const key = department?.name || 'Groceries';
+      if (!groups.has(key)) groups.set(key, { department, entries: [] });
+      groups.get(key).entries.push([name, n]);
+    }
+    // The card follows the order a robot walks the shop: Dairy → Pantry → Produce → Bakery.
+    const items = [...groups.values()]
+      .sort((a, b) => (a.department?.x ?? 99) - (b.department?.x ?? 99))
+      .map(group => `<li class="g-order-dept"><h3>${escape(group.department?.name || 'Groceries')}</h3><ul>${group.entries.map(([name, n]) =>
+        `<li><i style="background:${productColour(name)}"></i>${n > 1 ? `${n} × ` : ''}${escape(name)}</li>`).join('')}</ul></li>`).join('');
     const points = s.status === 'delivered' ? `+${order.points} points${order.rushBonus ? ` (incl. ${order.rushBonus} rush-hour bonus)` : ''}` : `Worth ${order.reward} points on time`;
     const html = `
       <header><h2>Order ${escape(state.order)}</h2><button class="g-x" id="order-close" type="button" aria-label="Close order">×</button></header>
       <p class="g-order-where">${escape(order.address)}</p>
       <p class="g-order-status" style="--seat:${owner ? owner.colour : '#735536'}">${owner ? `<button type="button" class="g-order-shop" data-seat="${s.seat}">${escape(detail)}</button>` : escape(detail)}</p>
-      <h3>${order.items.length} item${order.items.length === 1 ? '' : 's'}</h3><ul class="g-order-items">${items}</ul>
+      <h3>${order.items.length} item${order.items.length === 1 ? '' : 's'} by department</h3><ul class="g-order-items g-order-groups">${items}</ul>
       <dl>
         <div><dt>Ordered</dt><dd>${clockText(dayAt(order.placed))}, ${span(head - order.placed)} ago</dd></div>
         ${timing ? `<div><dt>Time</dt><dd>${escape(timing)}</dd></div>` : ''}
@@ -228,6 +248,6 @@ export async function createPanels({ game, play, you }) {
     if (state.order && Math.floor(head * 4) !== state.cardTick) { state.cardTick = Math.floor(head * 4); drawOrder(head); }
   }
 
-  if (state.seat !== null) showShop(state.seat);
+  if (state.seat !== null && autoOpen) showShop(state.seat);
   return { showShop, closeShop, showOrder, closeOrder, update, get selectedOrder() { return state.order; }, get seat() { return state.open ? state.seat : null; } };
 }

@@ -1,11 +1,29 @@
 // Preview build of the live /game/CODE page (prototypes/town-rush/game-view.js) with a 3D view added.
 import { MAP_LABELS } from './game-map-labels.js';
+import { forestPath, unpackTrees } from './forest.js?v=30';
 import { COLORS, DEFAULT_LOOK, botSvg, cleanLook, truckSvg } from './looks.js';
-import { createPanels } from './panels.js?v=20';
-import { forestPath, plantForest } from './forest.js?v=20';
+import { createPanels } from './panels.js?v=30';
 
 const $ = id => document.getElementById(id);
 const code = 'PREVIEW';
+const params = new URLSearchParams(location.search);
+const wants3d = params.get('view') !== '2d';
+// Start every download the first view needs at once, instead of one after another: the replay and
+// map now, and for the 3D view also its code, the terrain, the baked buildings and the trees.
+const early = new Map();
+function grab(url, kind) {
+  if (!early.has(url)) early.set(url, fetch(url).then(res => { if (!res.ok) throw new Error(`${url}: ${res.status}`); return res[kind](); }));
+  return early.get(url);
+}
+const firstGame = fetch('data/game.json?v=30').catch(() => null);
+grab('data/game-map.json?v=30', 'json');
+grab('data/trees.bin?v=30', 'arrayBuffer').catch(() => null);
+let view3dModule = null;
+if (wants3d) {
+  view3dModule = import('./view3d.js?v=30');
+  for (const [url, kind] of [['data/terrain.json?v=30', 'json'], ['data/terrain.bin?v=30', 'arrayBuffer'],
+    ['data/buildings.bin?v=30', 'arrayBuffer'], ['data/homes.json?v=30', 'json'], ['data/landmarks.json?v=30', 'json']]) grab(url, kind).catch(() => null);
+}
 const canvas = $('map'), ctx = canvas.getContext('2d');
 const terrain = $('terrain'), mapCtx = terrain.getContext('2d', { alpha: false });
 const shopSign = new Image();
@@ -56,6 +74,7 @@ function setMeta(meta) {
   const span = meta.dayEnd - meta.clockStart;
   $('day').innerHTML = meta.rushHours.map(([a, b]) => `<i style="left:${(a - meta.clockStart) / span * 100}%;width:${(b - a) / span * 100}%"></i>`).join('') + '<b id="day-fill"></b>';
   $('board').style.height = `${game.players.length * 52}px`;
+  $('board-title').textContent = `Standings · ${game.players.length} AI players`;
   $('board').replaceChildren(...game.players.map(player => {
     const row = document.createElement('button');
     row.type = 'button';
@@ -63,8 +82,8 @@ function setMeta(meta) {
     row.style.setProperty('--seat', player.colour);
     row.innerHTML = `<span class="g-rank"></span><span class="g-face">${botSvg(player.look)}</span><span class="g-who"><strong></strong><small></small></span><span class="g-score"></span>`;
     row.querySelector('strong').textContent = player.name;
-    // focus the fleet (as before) and show that player's shop in the shop window
-    row.addEventListener('click', () => { play.focus = play.focus === player.seat ? null : player.seat; lastBoardTick = -1; panels?.showShop(player.seat); });
+    if (player.store) row.title = `${player.store.name} · ${player.district}`;
+    row.addEventListener('click', () => { play.focus = play.focus === player.seat ? null : player.seat; panels?.showShop(player.seat); lastBoardTick = -1; });
     player.row = row;
     return row;
   }));
@@ -77,8 +96,9 @@ function addFrames(frames) {
   }
 }
 
+let gameRequests = 0;
 async function load() {
-  const res = await fetch('data/game.json').catch(() => null);
+  const res = await (gameRequests++ ? fetch('data/game.json?v=30').catch(() => null) : firstGame);
   const body = res && res.ok ? await res.json().catch(() => null) : null;
   if (!body) {
     if (!game.meta) $('message').textContent = res && res.status === 404 ? 'This game has not started yet. It opens here the moment it starts.' : 'Could not reach the game. Trying again ...';
@@ -89,11 +109,13 @@ async function load() {
   addFrames(body.frames);
   game.finished = body.finished;
   if (first) {
-    $('message').hidden = true;
-    // shop window + order card; `meta.you` is the viewer's seat (in the live game: the signed-in player's)
-    createPanels({ game, play, you: Number.isInteger(game.meta.you) ? game.meta.you : null }).then(made => { panels = made; }).catch(error => console.error(error));
+    if (!wants3d) $('message').hidden = true;
     play.following = !game.finished;
-    play.head = game.finished ? 0 : Math.max(0, latest() - 1);
+    // Open on active deliveries rather than asking spectators to wait through packing.
+    // The entire recording, including the opening, remains available on the timeline.
+    const requestedTick = new URLSearchParams(location.search).get('t');
+    const openingTick = requestedTick !== null && Number.isFinite(Number(requestedTick)) ? Number(requestedTick) : 120;
+    play.head = game.finished ? clamp(openingTick, 0, latest()) : Math.max(0, latest() - 1);
     if (!game.finished) play.speed = 1;
     fit();
   }
@@ -120,13 +142,13 @@ function resize() {
   if (!view.touched) fit();
 }
 
-function fit() {
+function fit(wholeCity = false) {
   if (!town || !view.w) return;
   const wide = view.w > 760;
   const boardHeight = 40 + 52 * game.players.length;
   const pad = { l: wide ? 44 : 30, t: 104, r: wide ? 334 : 30,
     b: wide ? 92 : Math.min(boardHeight, view.h * .34) + 101 };
-  let [x0, y0, x1, y1] = town.focus;
+  let [x0, y0, x1, y1] = town.bounds;
   if (game.players.length) {
     const xs = game.players.map(p => p.shop[0]), ys = game.players.map(p => p.shop[1]);
     const mx = [wx(x0), wx(x1), ...xs], my = [wy(y0), wy(y1), ...ys];
@@ -138,6 +160,11 @@ function fit() {
   view.scale = view.fit = Math.min(w / (x1 - x0), h / (y1 - y0));
   view.x = pad.l + (w - (x1 - x0) * view.scale) / 2 - x0 * view.scale;
   view.y = pad.t + (h - (y1 - y0) * view.scale) / 2 - y0 * view.scale;
+  if (town.coverage && wholeCity !== true) {
+    view.scale *= town.coverage.kind === 'distributed-city-match' ? 1.2 : 2.4;
+    view.x = pad.l + w / 2 - (x0 + x1) / 2 * view.scale;
+    view.y = pad.t + h / 2 - (y0 + y1) / 2 * view.scale;
+  }
   view.touched = false;
 }
 
@@ -194,7 +221,7 @@ function choose(x, y) {
   if (hit.kind === 'order') panels.showOrder(hit.id);
   else panels.showShop(hit.seat);
 }
-canvas.addEventListener('dblclick', fit);
+canvas.addEventListener('dblclick', () => fit());
 
 function seekTo(tick) {
   play.head = clamp(tick, 0, latest());
@@ -255,7 +282,7 @@ function drawMap() {
   ctx.setTransform(s * view.dpr, 0, 0, s * view.dpr, view.x * view.dpr, view.y * view.dpr);
   ctx.fillStyle = '#c9d8ac';
   ctx.fill(paths.green);
-  if (paths.forest) ctx.fill(paths.forest);     // green where the forest grows (the 3D view's trees)
+  if (paths.forest) ctx.fill(paths.forest);
   ctx.fillStyle = '#86b8c5';
   ctx.fill(paths.water);
   ctx.lineCap = ctx.lineJoin = 'round';
@@ -466,7 +493,7 @@ function hud(frame, next, k) {
   const live = !game.finished && play.following, done = game.finished && play.head >= game.meta.ticks;
   $('badge').textContent = live ? 'Live' : done ? 'Final' : game.finished ? 'Replay' : 'Behind live';
   $('badge').classList.toggle('is-live', live);
-  $('board-title').textContent = done ? 'Final result' : 'Standings';
+  $('board-title').textContent = `${done ? 'Final result' : 'Standings'} · ${game.players.length} AI players`;
   $('live').hidden = game.finished || play.following;
   $('speed').hidden = !game.finished && play.following;
   $('speed').textContent = `${play.speed}×`;
@@ -532,13 +559,23 @@ const host3d = $('world3d');
 async function setMode(next) {
   if (next === '3d' && !world3d) {
     $('view-3d').setAttribute('aria-busy', 'true');
+    $('message').hidden = false;
+    $('message').textContent = `Preparing ${town.name || 'the town'}…`;
     await forestReady;
-    loading3d ||= import('./view3d.js?v=20').then(m => m.createWorld3d({
-      host: host3d, overlay: ctx, view, town, game, play, wx, wy, truckAt, shopSign, labels: town.labels || MAP_LABELS, forest: forestSpots,
+    loading3d ||= (view3dModule || import('./view3d.js?v=30')).then(m => m.createWorld3d({
+      host: host3d, overlay: ctx, view, town, game, play, wx, wy, truckAt, shopSign, labels: town.labels || MAP_LABELS, trees, grab, paths,
       constants: { OPEN, CLAIMED, DELIVERED, MISSED, PARKED, TRAIL, POP_TICKS, INK },
       selected: () => panels?.selectedOrder ?? null, onTap: choose, hover: pickAt,
+      onProgress: buildingProgress,
+      onContextLost: () => { $('message').hidden = false; $('message').textContent = 'The graphics memory was reset. Reloading…'; setTimeout(() => location.reload(), 800); },
     }));
-    try { world3d = await loading3d; }
+    try {
+      world3d = await loading3d;
+      $('message').hidden = true;
+      world3d.ready.then(stats => {
+        $('building-mode-label').textContent = `All ${stats.count.toLocaleString('en-US')} buildings resident`;
+      }).catch(error => console.error(error));
+    }
     catch (error) { console.error(error); $('message').hidden = false; $('message').textContent = 'The 3D view could not start in this browser.'; setTimeout(() => { $('message').hidden = true; }, 3000); next = '2d'; }
     $('view-3d').removeAttribute('aria-busy');
   }
@@ -556,42 +593,98 @@ async function setMode(next) {
 }
 $('view-2d').addEventListener('click', () => setMode('2d'));
 $('view-3d').addEventListener('click', () => setMode('3d'));
+$('city-overview').addEventListener('click', () => {
+  if (mode === '3d' && world3d) world3d.overview();
+  else fit(true);
+  $('explore-place').value = '';
+});
+$('city-home').addEventListener('click', () => {
+  if (mode === '3d' && world3d) world3d.flyHome();
+  else fit();
+  $('explore-place').value = '';
+});
+for (const [id, factor] of [['zoom-in', .7], ['zoom-out', 1 / .7]]) {
+  $(id).addEventListener('click', () => {
+    if (mode === '3d' && world3d) world3d.zoomBy(factor);
+    else zoomAt(view.w / 2, view.h / 2, 1 / factor);
+  });
+}
+$('explore-place').addEventListener('change', event => {
+  if (!event.target.value) return;
+  const [lon, lat] = event.target.value.split(',').map(Number);
+  if (mode === '3d' && world3d) world3d.explore(lon, lat);
+  else {
+    view.scale = view.fit * 4.5;
+    view.x = (view.w - (view.w > 760 ? 300 : 0)) / 2 - wx(lon * 1e5) * view.scale;
+    view.y = view.h * .4 - wy(lat * 1e5) * view.scale;
+    view.touched = true;
+  }
+});
 addEventListener('keydown', event => {
   if (event.target.closest?.('input, textarea')) return;
   if (event.key === 'v' || event.key === 'V') setMode(mode === '3d' ? '2d' : '3d');
 });
 window.groceryView = { setMode, play, game, toWorld: (lon, lat) => [wx(lon), wy(lat)], get picks() { return mode === '3d' && world3d ? world3d.picks : picks; }, get panels() { return panels; }, get world3d() { return world3d; } };
 
-// Forest: OSM woodland plus empty land away from town (src/forest.js). Optional data; the 3D view
-// waits for it so both views show the same forest.
-let forestSpots = [], forestReady = null;
+// Forest: the same spots as the 3D trees, painted green under them in 2D. Planted once by
+// tools/bake_trees.cjs (data/trees.bin) rather than on every visit.
+let trees = { forest: [], parks: [] }, forestReady = null;
 function growForest() {
-  const meta = () => game.meta ? Promise.resolve() : new Promise(done => setTimeout(() => done(meta()), 150));
-  forestReady = meta().then(() => Promise.all([
-    fetch('data/buildings.json').then(res => res.ok ? res.json() : null),
-    fetch('data/landcover.json').then(res => res.ok ? res.json() : null),
-  ]).then(([extra, cover]) => {
-    if (!extra || !cover) return;
-    forestSpots = plantForest({ town, buildings: extra.buildings, cover, wx, wy, shops: (game.meta?.players || []).map(p => [wx(p.shop[0]), wy(p.shop[1])]) });
-    paths.forest = forestPath(forestSpots);
+  if (params.get('forest') === '0') return;
+  forestReady = grab('data/trees.bin?v=30', 'arrayBuffer').then(buffer => {
+    trees = unpackTrees(buffer);
+    paths.forest = forestPath(trees.forest);
     mapKey = '';
-  })).catch(error => console.error(error));
+  }).catch(error => console.error(error));
+}
+
+// "Building Bergen: 12,400 / 54,326" while the city workers stream the chunks in
+function buildingProgress(count, total) {
+  const label = $('building-mode-label');
+  if (count < total) label.textContent = `Building ${town.name || 'the town'}: ${count.toLocaleString('en-US')} / ${total.toLocaleString('en-US')}`;
+}
+
+function openPanels() {
+  // shop window + order card; `meta.you` is the viewer's seat (in the live game: the signed-in player's)
+  createPanels({ game, play, you: Number.isInteger(game.meta.you) ? game.meta.you : null,
+    autoOpen: innerWidth > 760 || params.get('buildings') === 'adaptive',
+  }).then(made => { panels = made; }).catch(error => console.error(error));
+}
+
+// The explore menu: the town's landmarks and districts from data/places.json ([{ name, lon, lat }]).
+function addPlaces() {
+  const select = $('explore-place'), name = town.name || 'the town';
+  select.options[0].textContent = `Explore ${town.name || ''}`.trim();
+  select.setAttribute('aria-label', `Fly to a place in ${name}`);
+  grab('data/places.json?v=30', 'json').then(({ places }) => {
+    for (const place of places) select.add(new Option(place.name, `${place.lon},${place.lat}`));
+  }).catch(() => { select.hidden = true; });
 }
 
 async function start() {
   document.querySelector('.g-mark').innerHTML = botSvg(DEFAULT_LOOK);
+  $('building-mode-label').textContent = 'Every building resident once built';
   if (!code) { $('message').textContent = 'This link has no game code.'; return; }
-  town = await fetch('data/game-map.json').then(res => res.json());
+  town = await grab('data/game-map.json?v=30', 'json');
   // per-town maps (tools/build-town-game-map.py) carry their own name and labels; Kongsberg's do not
-  if (town.name) { document.querySelector('.g-brand small').textContent = town.name; document.title = `Grocery Bot ${town.name} Map`; }
+  if (town.name) {
+    const [west, south, east, north] = town.bounds;
+    const km2 = (east - west) * (north - south) / 1e10 * 111.32 * 111.32 * Math.cos((south + north) / 2e5 * Math.PI / 180);
+    document.querySelector('.g-brand small').textContent = town.name + (town.coverage ? ` · ${Math.round(km2)} km² to explore` : '');
+    document.title = `Grocery Bot ${town.name} Map`;
+  }
   origin = [(town.bounds[0] + town.bounds[2]) / 2, (town.bounds[1] + town.bounds[3]) / 2];
   squash = Math.cos(origin[1] / 1e5 * Math.PI / 180);
   buildPaths();
-  resize();
   growForest();
+  addPlaces();
+  resize();
   requestAnimationFrame(frame);
-  load();
-  if (new URLSearchParams(location.search).get('view') === '3d') setMode('3d');
+  await load();
+  while (!game.meta) await new Promise(resolve => setTimeout(resolve, 500));
+  // The shop window's own data and drawing wait until the 3D view is up, so they do not compete with it.
+  if (wants3d) await setMode('3d');
+  openPanels();
 }
 
 start();

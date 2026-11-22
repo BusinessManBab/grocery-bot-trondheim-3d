@@ -1,4 +1,5 @@
-export const COLORS = { red: '#c8102e', ink: '#2b2522', leaf: '#3f8f4f', milk: '#3b77b8', carrot: '#e8772e', plum: '#7a4a93', lemon: '#f1c232', oat: '#e9dfcc' };
+export const COLORS = { red: '#c8102e', ink: '#2b2522', leaf: '#3f8f4f', milk: '#3b77b8', carrot: '#e8772e', plum: '#7a4a93', lemon: '#f1c232', oat: '#e9dfcc',
+  teal: '#008b8b', rose: '#cf668f', indigo: '#5354bd', cocoa: '#916342' };
 const colours = Object.keys(COLORS);
 export const OPTIONS = {
   color: colours,

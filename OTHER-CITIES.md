@@ -723,3 +723,17 @@ the browser console, `groceryView.world3d.flowAt(x, z)` returns `[dx, dz, speed]
   on the page.
 - Elevation: Mapzen Terrarium tiles on AWS Open Data.
 - Delivery homes, shops and the replay: the Grocery Bot game data for that town.
+
+## Landmarks (a town's trademarks)
+
+Each town gets 2-4 of its real-life trademark sites, modelled so they stand out without adding lag:
+list them in `tools/landmarks.spec.json` (id, name, model, `at`, and `osm: "w123"` for an OSM
+outline, `building: true` / `buildings: [[lon, lat], ...]` for background buildings it replaces,
+`parts: "osm"` to fetch the outline's OSM `building:part` ways with heights and roof shapes,
+`keep: true` for an area outline that should not replace the buildings inside it), run
+`node tools/bake_landmarks.mjs`, then `node tools/bake_buildings.mjs` (drops replaced footprints).
+Generic models: `church`, `outline`, `rapids`; signature shapes are functions in `MODELS` in
+`src/landmarks.js` (Trondheim: `nidaros`, `bybro`, `wharves`, `ramparts`, `donjon`, `tvtower`).
+Verify shapes, colours and heights from sources first. Keep everything in the shared buckets
+(a handful of draw calls) and never add coplanar faces: skip a wall a neighbouring part covers,
+inset touching footprints, and offset details 0.25 m off a wall.

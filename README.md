@@ -44,3 +44,32 @@ To make this for another town, follow [OTHER-CITIES.md](OTHER-CITIES.md) (data s
 Switch views with the 2D / 3D buttons (or V, or `?view=3d`).
 
 Elevation: Mapzen Terrarium tiles (AWS Open Data). Map data © OpenStreetMap contributors (ODbL).
+
+## Landmarks
+
+Trondheim's trademarks are modelled in `src/landmarks.js` from `tools/landmarks.spec.json`
+(baked by `node tools/bake_landmarks.mjs` into `data/landmarks.json` + `data/places.json`, the
+"Explore Trondheim" menu):
+
+- **Nidarosdomen** (`nidaros`): its ~150 OpenStreetMap building parts (nave, transepts, choir,
+  octagon, chapels, west towers) with their mapped heights and roof shapes, in grey-green soapstone
+  under green copper roofs; the central tower's copper spire to 87 m (SNL) with a gilt ball, and the
+  8 m rose window with eightfold tracery in the west front between the two west towers. Walls two
+  parts share are drawn only where they show above the lower part, so nothing is coplanar.
+- **Gamle Bybro** (`bybro`): the timber bridge on three stone piers with red railings and its red
+  neo-Gothic portals at both ends ("Lykkens portal").
+- **The wharves** (`wharves`): 43 warehouses along the Nidelva at Kjøpmannsgata and Bakklandet on
+  their real footprints, in ochre, red, white and brown, gables to the river, on posts at the water.
+- **Kristiansten festning** (`ramparts`, `donjon`): stone ramparts with a grass top on the fort's
+  outline and the whitewashed four-storey Donjon with its gun slits under a hipped roof.
+- **Tyholttårnet** (`tvtower`): the 124 m concrete tower with its dark-glass revolving restaurant at
+  70-76.6 m (OSM) and the antenna mast.
+
+All of it is merged into the shared per-material meshes: 4 draw calls in total.
+
+## Loading
+
+The Oslo fast-load engine: `tools/bake_buildings.mjs` writes the compact chunked `data/buildings.bin`
+(shared walls kept on one side only, against flicker), `tools/bake_trees.cjs` bakes `data/trees.bin`
+(run it where Chromium has a GPU), and the 3D view streams chunk meshes from module workers
+nearest-first (`src/city-stream.js`, `src/world-worker.js`). Order: landmarks, buildings, trees.
